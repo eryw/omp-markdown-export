@@ -1,0 +1,12 @@
+{
+  "name": "omp-markdown-export",
+  "version": "0.1.0",
+  "type": "module",
+  "dependencies": {},
+  "devDependencies": {
+    "@oh-my-pi/pi-coding-agent": "^18.1.10"
+  },
+  "omp": {
+    "extensions": ["./index.ts"]
+  }
+}
