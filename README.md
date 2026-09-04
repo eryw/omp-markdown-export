@@ -10,25 +10,38 @@ The extension registers the `/export-md` slash command and provides three output
 
 ## Installation
 
-Install the dependencies:
+Install the published package by its npm name:
+
+```bash
+omp install omp-markdown-export
+```
+
+For local development, install the dependencies:
 
 ```bash
 bun install
 ```
 
-Load the plugin directory for one OMP invocation:
+Load the local extension for one OMP session:
 
 ```bash
-omp --plugin-dir /absolute/path/to/export-markdown
+omp --extension /absolute/path/to/export-markdown
 ```
 
-Alternatively, link or install it as a local plugin:
+Alternatively, link the local package as a plugin:
 
 ```bash
-omp plugin install /absolute/path/to/export-markdown
+omp plugin link /absolute/path/to/export-markdown
 ```
 
-Restart OMP after changing the extension source.
+Equivalent local-path install:
+
+```bash
+omp install /absolute/path/to/export-markdown
+```
+
+You can also add the local package path to the `extensions` list in your OMP
+configuration. Start a new OMP session after changing the extension source.
 
 ## Usage
 
