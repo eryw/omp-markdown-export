@@ -1,6 +1,16 @@
 {
   "name": "omp-markdown-export",
   "version": "0.3.0",
+  "description": "Export Oh My Pi sessions as readable Markdown conversation transcripts.",
+  "keywords": [
+    "oh-my-pi",
+    "omp",
+    "omp-extension",
+    "markdown",
+    "conversation-export",
+    "transcript",
+    "llm"
+  ],
   "type": "module",
   "license": "MIT",
   "dependencies": {},
