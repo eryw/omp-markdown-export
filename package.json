@@ -2,6 +2,15 @@
   "name": "omp-markdown-export",
   "version": "0.3.1",
   "description": "Export Oh My Pi sessions as readable Markdown conversation transcripts.",
+  "author": "Ery Widyanto",
+ 	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/eryw/omp-markdown-export.git"
+	},
+	"homepage": "https://github.com/eryw/omp-markdown-export#readme",
+	"bugs": {
+		"url": "https://github.com/eryw/omp-markdown-export/issues"
+	}, 
   "keywords": [
     "oh-my-pi",
     "omp",
