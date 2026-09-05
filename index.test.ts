@@ -14,21 +14,34 @@ function messageEntry(role: "user" | "assistant" | "toolResult", content: string
 }
 
 describe("export-md arguments", () => {
-	it("defaults to compact output", () => {
+	it("defaults to transcript output", () => {
 		expect(parseExportArgs("")).toEqual({
 			outputPath: undefined,
-			mode: "compact",
+			mode: "transcript",
+			withSubagents: false,
+			withImages: false,
+		});
+	});
+
+	it("selects annotated output explicitly", () => {
+		expect(parseExportArgs("--annotated output.md")).toEqual({
+			outputPath: "output.md",
+			mode: "annotated",
 			withSubagents: false,
 			withImages: false,
 		});
 	});
 
 	it("rejects conflicting output modes", () => {
-		expect(() => parseExportArgs("--raw --verbose")).toThrow("Choose either --raw or --verbose");
+		expect(() => parseExportArgs("--annotated --verbose")).toThrow("Choose either --annotated or --verbose");
 	});
 
 	it("rejects unknown flags instead of treating them as paths", () => {
 		expect(() => parseExportArgs("--verbsoe")).toThrow("Unknown option: --verbsoe");
+	});
+
+	it("rejects the removed raw flag", () => {
+		expect(() => parseExportArgs("--raw")).toThrow("Unknown option: --raw");
 	});
 
 	it("requires verbose mode when embedding images", () => {
@@ -46,17 +59,21 @@ describe("export-md serialization", () => {
 	it("quotes thinking so nested Markdown fences cannot close its container", () => {
 		const markdown = contentToMarkdown(
 			[{ type: "thinking", thinking: "inspect\n```typescript\nconst value = true;\n```\nfinished" }],
-			"compact",
+			"annotated",
 		);
 		expect(markdown).toBe(
 			"> 🧠 **Thinking**\n>\n> inspect\n> ```typescript\n> const value = true;\n> ```\n> finished",
 		);
 	});
 
-	it("raw mode contains only user and assistant text", () => {
-		expect(entryToMarkdown(messageEntry("user", "question"), "raw")).toBe("question");
-		expect(entryToMarkdown(messageEntry("assistant", "answer"), "raw")).toBe("answer");
-		expect(entryToMarkdown(messageEntry("toolResult", "private tool output"), "raw")).toBe("");
+	it("delimits speaker labels while excluding non-conversation messages in transcript mode", () => {
+		expect(entryToMarkdown(messageEntry("user", "question"), "transcript")).toBe(
+			"------------\nUser:\n\n------------\n\nquestion",
+		);
+		expect(entryToMarkdown(messageEntry("assistant", "answer"), "transcript")).toBe(
+			"------------\nAssistant:\n\n------------\n\nanswer",
+		);
+		expect(entryToMarkdown(messageEntry("toolResult", "private tool output"), "transcript")).toBe("");
 	});
 
 	it("omits verbose image payloads unless explicitly enabled", () => {
@@ -65,7 +82,7 @@ describe("export-md serialization", () => {
 		expect(contentToMarkdown(image, "verbose", true)).toBe("![image](data:image/png;base64,YWJj)");
 	});
 
-	it("keeps raw subagent output free of headings and metadata", () => {
+	it("keeps transcript subagent output free of headings and metadata", () => {
 		const subSession: SubSession = {
 			agentId: "Reviewer",
 			parent: null,
@@ -79,6 +96,8 @@ describe("export-md serialization", () => {
 			leafId: "assistant-entry",
 		};
 
-		expect(renderSubSessions({ Reviewer: subSession }, "raw")).toEqual(["subagent answer"]);
+		expect(renderSubSessions({ Reviewer: subSession }, "transcript")).toEqual([
+			"------------\nAssistant:\n\n------------\n\nsubagent answer",
+		]);
 	});
 });

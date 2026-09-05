@@ -4,8 +4,8 @@ An [OMP](https://omp.sh/) extension that exports the current session branch as M
 
 The extension registers the `/export-md` slash command and provides three output modes:
 
-- **Compact** by default: session title, user messages, assistant messages, and thinking blocks.
-- **Raw** with `--raw`: only user and assistant text, without headings, icons, thinking, tool results, or metadata.
+- **Transcript** by default: user and assistant text with clear speaker and message boundaries.
+- **Annotated** with `--annotated`: the transcript plus a session title, Markdown role headings, icons, and thinking blocks.
 - **Verbose** with `--verbose`: session metadata, thinking, tool calls, tool results, state changes, and subagent transcripts.
 
 ## Installation
@@ -45,7 +45,7 @@ configuration. Start a new OMP session after changing the extension source.
 
 ## Usage
 
-Export a compact transcript to the default filename:
+Export a conversation transcript to the default filename:
 
 ```text
 /export-md
@@ -65,10 +65,41 @@ Choose an output path:
 
 Paths are whitespace-delimited; paths containing spaces are not supported.
 
-### Compact output
+### Transcript output
 
 ```text
 /export-md [path]
+```
+
+Transcript mode emits only user and assistant text. Each `User:` or `Assistant:` label is enclosed by separator lines so both people and programs can identify message boundaries:
+
+```text
+------------
+User:
+
+------------
+
+Can you inspect this implementation?
+
+------------
+Assistant:
+
+------------
+
+The implementation has two important edge cases.
+```
+
+Include subagent transcripts explicitly:
+
+```text
+/export-md --with-subagents conversation.md
+/export-md --subs conversation.md
+```
+
+### Annotated output
+
+```text
+/export-md --annotated [path]
 ```
 
 Example:
@@ -89,28 +120,7 @@ Can you inspect this implementation?
 The implementation has two important edge cases.
 ```
 
-Compact mode excludes tool calls, tool results, state-change entries, images, and subagent transcripts by default.
-
-Include subagent transcripts without enabling all verbose details:
-
-```text
-/export-md --with-subagents conversation.md
-/export-md --subs conversation.md
-```
-
-### Raw output
-
-```text
-/export-md --raw conversation.txt
-```
-
-Raw mode emits only user and assistant text. It is suitable for piping into other programs or producing an unformatted transcript.
-
-Subagent text can be included while remaining raw:
-
-```text
-/export-md --raw --with-subagents conversation.txt
-```
+Annotated mode excludes tool calls, tool results, state-change entries, images, and subagent transcripts by default. Add `--with-subagents` or `--subs` to include subagent transcripts.
 
 ### Verbose output
 
@@ -142,13 +152,13 @@ Inline image payloads are omitted by default because base64 data can make the do
 
 | Option | Effect |
 | --- | --- |
-| `--raw` | Export unformatted user and assistant text only. |
+| `--annotated` | Add the session title, role headings, icons, and thinking blocks. |
 | `--verbose` | Export the complete diagnostic transcript. |
 | `--with-subagents` | Include nested subagent transcripts outside verbose mode. |
 | `--subs` | Alias for `--with-subagents`. |
 | `--with-images` | Embed base64 images in verbose output. |
 
-`--raw` and `--verbose` are mutually exclusive. Unknown options are rejected instead of being interpreted as output paths.
+`--annotated` and `--verbose` are mutually exclusive. Unknown options are rejected instead of being interpreted as output paths.
 
 ## Privacy
 

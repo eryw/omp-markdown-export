@@ -7,7 +7,7 @@ import { isRecord } from "@oh-my-pi/pi-utils";
 const COMMAND_NAME = "export-md";
 const DEFAULT_FILE_PREFIX = "omp-session-";
 
-export type OutputMode = "compact" | "verbose" | "raw";
+export type OutputMode = "transcript" | "annotated" | "verbose";
 
 export interface ExportOptions {
 	outputPath?: string;
@@ -55,7 +55,7 @@ export function contentToMarkdown(content: unknown, mode: OutputMode, withImages
 				case "thinking": {
 					const thinking = stringValue(block.thinking) ?? "";
 					if (!thinking) return "";
-					if (mode === "raw") return "";
+					if (mode === "transcript") return "";
 					return thinkingToMarkdown(thinking);
 				}
 				case "image": {
@@ -129,13 +129,14 @@ export function entryToMarkdown(entry: SessionEntry, mode: OutputMode, withImage
 	const role = stringValue(message.role) ?? "message";
 	const isConversationRole = role === "user" || role === "assistant";
 
-	if (mode === "raw" && !isConversationRole) return "";
-	if (mode === "compact" && !isConversationRole) return "";
+	if (mode !== "verbose" && !isConversationRole) return "";
 
 	const body = contentToMarkdown(message.content, mode, withImages);
 	if (!body) return "";
 
-	if (mode === "raw") return body;
+	if (mode === "transcript") {
+		return `------------\n${role === "user" ? "User" : "Assistant"}:\n\n------------\n\n${body}`;
+	}
 	return `## ${messageRole(message)}\n\n${body}`;
 }
 
@@ -145,8 +146,8 @@ export function entryToMarkdown(entry: SessionEntry, mode: OutputMode, withImage
 
 function headerToMarkdown(header: SessionHeader | null, mode: OutputMode): string {
 	if (!header) return "";
-	if (mode === "raw") return "";
-	if (mode === "compact") return header.title ? `# ${header.title}` : "# Session";
+	if (mode === "transcript") return "";
+	if (mode === "annotated") return header.title ? `# ${header.title}` : "# Session";
 	const lines = [`- **Session:** \`${header.id}\``, `- **Working directory:** \`${header.cwd}\``];
 	if (header.title) lines.unshift(`- **Title:** ${header.title}`);
 	if (header.timestamp) lines.push(`- **Started:** ${header.timestamp}`);
@@ -162,7 +163,7 @@ function subSessionToMarkdown(key: string, subSession: SubSession, mode: OutputM
 		.map(entry => entryToMarkdown(entry, mode, withImages))
 		.filter(Boolean)
 		.join("\n\n");
-	if (mode === "raw") return body;
+	if (mode === "transcript") return body;
 	const header = subSession.header ? headerToMarkdown(subSession.header, mode) : "";
 	return `## 🧑‍💻 Subagent: ${key}\n\n${header}${header && body ? "\n\n" : ""}${body || "_(empty transcript)_"}`;
 }
@@ -175,7 +176,7 @@ export function renderSubSessions(
 	const rendered = Object.entries(subSessions)
 		.map(([key, subSession]) => subSessionToMarkdown(key, subSession, mode, withImages))
 		.filter(Boolean);
-	if (mode === "raw" || rendered.length === 0) return rendered;
+	if (mode === "transcript" || rendered.length === 0) return rendered;
 	return ["# 🧑‍💻 Subagent transcripts", ...rendered];
 }
 
@@ -184,7 +185,7 @@ export function renderSubSessions(
 // ---------------------------------------------------------------------------
 
 const KNOWN_FLAGS: Record<string, true> = {
-	"--raw": true,
+	"--annotated": true,
 	"--verbose": true,
 	"--with-subagents": true,
 	"--subs": true,
@@ -196,18 +197,18 @@ export function parseExportArgs(args: string): ExportOptions {
 	const unknownFlag = parts.find(part => part.startsWith("--") && !KNOWN_FLAGS[part]);
 	if (unknownFlag) throw new Error(`Unknown option: ${unknownFlag}`);
 
-	const raw = parts.includes("--raw");
+	const annotated = parts.includes("--annotated");
 	const verbose = parts.includes("--verbose");
-	if (raw && verbose) throw new Error("Choose either --raw or --verbose, not both");
+	if (annotated && verbose) throw new Error("Choose either --annotated or --verbose, not both");
 
 	const withSubagents = parts.includes("--with-subagents") || parts.includes("--subs");
 	const withImages = parts.includes("--with-images");
 	if (withImages && !verbose) throw new Error("--with-images requires --verbose");
 
-	const mode: OutputMode = raw ? "raw" : verbose ? "verbose" : "compact";
+	const mode: OutputMode = annotated ? "annotated" : verbose ? "verbose" : "transcript";
 	const paths = parts.filter(part => !KNOWN_FLAGS[part]);
 	if (paths.length > 1) {
-		throw new Error("Usage: /export-md [--raw | --verbose [--with-images]] [--with-subagents] [path]");
+		throw new Error("Usage: /export-md [--annotated | --verbose [--with-images]] [--with-subagents] [path]");
 	}
 
 	return { outputPath: paths[0], mode, withSubagents, withImages };
@@ -250,16 +251,16 @@ async function exportMarkdown(args: string, ctx: ExtensionCommandContext): Promi
 // ---------------------------------------------------------------------------
 
 const COMMAND_FLAGS: Array<{ value: string; label: string; description: string }> = [
-	{ value: "--raw", label: "--raw", description: "Plain text only — no headers, icons, or formatting" },
+	{ value: "--annotated", label: "--annotated", description: "Add session title, role headings, icons, and thinking" },
 	{ value: "--verbose", label: "--verbose", description: "Full detail — tool calls, metadata, subagents" },
-	{ value: "--with-subagents", label: "--with-subagents", description: "Include subagent transcripts in compact mode" },
+	{ value: "--with-subagents", label: "--with-subagents", description: "Include subagent transcripts" },
 	{ value: "--subs", label: "--subs", description: "Shorthand for --with-subagents" },
 	{ value: "--with-images", label: "--with-images", description: "Embed inline images in verbose output" },
 ];
 
 export default function exportMarkdownExtension(pi: ExtensionAPI) {
 	pi.registerCommand(COMMAND_NAME, {
-		description: "Export session to Markdown (--raw for plain text, --verbose for full details)",
+		description: "Export a transcript to Markdown (--annotated for thinking, --verbose for full details)",
 		getArgumentCompletions: (prefix: string) => {
 			if (!prefix.startsWith("--")) return null;
 			return COMMAND_FLAGS.filter(flag => flag.value.startsWith(prefix));
