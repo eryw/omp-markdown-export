@@ -89,16 +89,18 @@ const ROLE_LABELS: Record<string, string> = {
 	system: "⚙️ System",
 };
 
-function messageRole(message: Record<string, unknown>): string {
+function messageRole(message: Record<string, unknown>, isSubagent: boolean): string {
 	const role = stringValue(message.role) ?? "message";
+	if (isSubagent && role === "user") return "🧑‍💻 Agent";
 	return ROLE_LABELS[role] ?? `💬 ${role[0].toUpperCase()}${role.slice(1)}`;
 }
 
-// ---------------------------------------------------------------------------
-// Entry → Markdown
-// ---------------------------------------------------------------------------
-
-export function entryToMarkdown(entry: SessionEntry, mode: OutputMode, withImages = false): string {
+function entryToMarkdownForContext(
+	entry: SessionEntry,
+	mode: OutputMode,
+	withImages: boolean,
+	isSubagent: boolean,
+): string {
 	if (entry.type !== "message") {
 		if (mode !== "verbose") return "";
 		switch (entry.type) {
@@ -135,9 +137,14 @@ export function entryToMarkdown(entry: SessionEntry, mode: OutputMode, withImage
 	if (!body) return "";
 
 	if (mode === "transcript") {
-		return `------------\n${role === "user" ? "User" : "Assistant"}:\n\n------------\n\n${body}`;
+		const speaker = isSubagent && role === "user" ? "Agent" : role === "user" ? "User" : "Assistant";
+		return `------------\n${speaker}:\n\n------------\n\n${body}`;
 	}
-	return `## ${messageRole(message)}\n\n${body}`;
+	return `## ${messageRole(message, isSubagent)}\n\n${body}`;
+}
+
+export function entryToMarkdown(entry: SessionEntry, mode: OutputMode, withImages = false): string {
+	return entryToMarkdownForContext(entry, mode, withImages, false);
 }
 
 // ---------------------------------------------------------------------------
@@ -160,7 +167,7 @@ function headerToMarkdown(header: SessionHeader | null, mode: OutputMode): strin
 
 function subSessionToMarkdown(key: string, subSession: SubSession, mode: OutputMode, withImages: boolean): string {
 	const body = subSession.entries
-		.map(entry => entryToMarkdown(entry, mode, withImages))
+		.map(entry => entryToMarkdownForContext(entry, mode, withImages, true))
 		.filter(Boolean)
 		.join("\n\n");
 	if (mode === "transcript") return body;

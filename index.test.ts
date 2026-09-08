@@ -100,4 +100,18 @@ describe("export-md serialization", () => {
 			"------------\nAssistant:\n\n------------\n\nsubagent answer",
 		]);
 	});
+
+	it("labels internal prompts as Agent in subagent transcripts", () => {
+		const subSession: SubSession = {
+			agentId: "Reviewer",
+			parent: null,
+			header: null,
+			entries: [messageEntry("user", "Review the implementation."), messageEntry("assistant", "I found one issue.")],
+			leafId: "assistant-entry",
+		};
+
+		expect(renderSubSessions({ Reviewer: subSession }, "transcript")).toEqual([
+			"------------\nAgent:\n\n------------\n\nReview the implementation.\n\n------------\nAssistant:\n\n------------\n\nI found one issue.",
+		]);
+	});
 });
