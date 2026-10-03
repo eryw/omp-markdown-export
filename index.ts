@@ -1,8 +1,36 @@
 import * as path from "node:path";
 import type { ExtensionAPI, ExtensionCommandContext } from "@oh-my-pi/pi-coding-agent";
 import type { SessionEntry, SessionHeader } from "@oh-my-pi/pi-coding-agent";
-import { collectSubSessions, type SubSession } from "@oh-my-pi/pi-coding-agent/export/html";
 import { isRecord } from "@oh-my-pi/pi-utils";
+
+export interface SubSession {
+	agentId: string;
+	parent: string | null;
+	header: SessionHeader | null;
+	entries: SessionEntry[];
+	leafId: string | null;
+}
+
+const HTML_EXPORT_MODULE = "@oh-my-pi/pi-coding-agent/export/html";
+const SESSION_SUBSESSIONS_MODULE = "@oh-my-pi/pi-coding-agent/session/sub-sessions";
+
+type SubSessionCollector = (sessionFile: string) => Promise<Record<string, SubSession>>;
+type SubSessionModuleImporter = (modulePath: string) => Promise<unknown>;
+
+export async function loadSubSessionCollector(
+	importModule: SubSessionModuleImporter = modulePath => import(modulePath),
+): Promise<SubSessionCollector> {
+	const htmlModule = await importModule(HTML_EXPORT_MODULE);
+	if (isRecord(htmlModule) && typeof htmlModule.collectSubSessions === "function") {
+		return htmlModule.collectSubSessions as SubSessionCollector;
+	}
+
+	const sessionModule = await importModule(SESSION_SUBSESSIONS_MODULE);
+	if (isRecord(sessionModule) && typeof sessionModule.collectSubSessions === "function") {
+		return sessionModule.collectSubSessions as SubSessionCollector;
+	}
+	throw new Error("OMP does not expose collectSubSessions in either supported module");
+}
 
 const COMMAND_NAME = "export-md";
 const DEFAULT_FILE_PREFIX = "omp-session-";
@@ -245,6 +273,7 @@ async function exportMarkdown(args: string, ctx: ExtensionCommandContext): Promi
 
 	const includeSubagents = opts.mode === "verbose" || opts.withSubagents;
 	if (includeSubagents) {
+		const collectSubSessions = await loadSubSessionCollector();
 		const subSessions = await collectSubSessions(sessionFile);
 		sections.push(...renderSubSessions(subSessions, opts.mode, opts.withImages));
 	}

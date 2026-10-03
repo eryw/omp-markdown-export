@@ -43,6 +43,10 @@ omp install /absolute/path/to/export-markdown
 You can also add the local package path to the `extensions` list in your OMP
 configuration. Start a new OMP session after changing the extension source.
 
+At runtime, the extension uses `collectSubSessions` from the HTML export module
+when available, and falls back to the session module when the HTML module no
+longer exports it.
+
 ## Usage
 
 Export a conversation transcript to the default filename:

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import type { SessionEntry } from "@oh-my-pi/pi-coding-agent";
-import type { SubSession } from "@oh-my-pi/pi-coding-agent/export/html";
-import { contentToMarkdown, entryToMarkdown, parseExportArgs, renderSubSessions } from "./index";
+import type { SubSession } from "./index";
+import { contentToMarkdown, entryToMarkdown, loadSubSessionCollector, parseExportArgs, renderSubSessions } from "./index";
 
 function messageEntry(role: "user" | "assistant" | "toolResult", content: string): SessionEntry {
 	return {
@@ -12,6 +12,43 @@ function messageEntry(role: "user" | "assistant" | "toolResult", content: string
 		message: { role, content },
 	} as SessionEntry;
 }
+
+describe("OMP sub-session API detection", () => {
+	const htmlModulePath = "@oh-my-pi/pi-coding-agent/export/html";
+	const sessionModulePath = "@oh-my-pi/pi-coding-agent/session/sub-sessions";
+	const htmlRecords = {
+		Html: { agentId: "Html", parent: null, header: null, entries: [], leafId: null },
+	};
+	const sessionRecords = {
+		Session: { agentId: "Session", parent: null, header: null, entries: [], leafId: null },
+	};
+
+	it("uses collectSubSessions from the HTML export module when available", async () => {
+		const collector = await loadSubSessionCollector(async modulePath =>
+			modulePath === htmlModulePath ? { collectSubSessions: async () => htmlRecords } : undefined,
+		);
+
+		expect(await collector("session.jsonl")).toEqual(htmlRecords);
+	});
+
+	it("falls back to the session module when HTML no longer exports the helper", async () => {
+		const collector = await loadSubSessionCollector(async modulePath => {
+			if (modulePath === htmlModulePath) return {};
+			if (modulePath === sessionModulePath) return { collectSubSessions: async () => sessionRecords };
+			return undefined;
+		});
+
+		expect(await collector("session.jsonl")).toEqual(sessionRecords);
+	});
+
+	it("fails clearly when neither module exports the helper", async () => {
+		await expect(
+			loadSubSessionCollector(async modulePath =>
+				modulePath === htmlModulePath || modulePath === sessionModulePath ? {} : undefined,
+			),
+		).rejects.toThrow("OMP does not expose collectSubSessions in either supported module");
+	});
+});
 
 describe("export-md arguments", () => {
 	it("defaults to transcript output", () => {
